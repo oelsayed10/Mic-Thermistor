@@ -66,6 +66,9 @@ String UpperLimitInput;
 int LowerLimit;
 String LowerLimitW;
 String LowerLimitInput;
+int Age;
+String AgeW;
+String AgeInput;
 int counter;
 int caution;
 int escape;
@@ -178,24 +181,24 @@ if(gate > 2){
   Serial.println("////////// TrachAlert System //////////");
   String title = "TrachAlert System";
   charac.writeValue(title);
-  Serial.println("What should the upper limit for the respiratory rate be?");
-  String firstquestion = "Input Upper Limit: ";
+  Serial.println("What is the age of the patient? (if patient is less than 1 year old, input 0)");
+  String firstquestion = "Input Age in years (if patient is less than 1 year old, input 0): ";
   charac.writeValue(firstquestion);
   while (central.connected() && uppertunnel > 2) {
     if(charac.written()){
-      UpperLimitInput = charac.value();
-      UpperLimit = UpperLimitInput.toInt();
+      AgeInput = charac.value();
+      Age = AgeInput.toInt();
       uppertunnel = 1;
     }
   }
-  Serial.print("Upper respiratory rate limit set to: ");
-  String firstresponse = "Upper Limit set to: ";
+  Serial.print("Age set to ");
+  String firstresponse = "Age set to: ";
   charac.writeValue(firstresponse);
-  Serial.print(UpperLimit);
-  UpperLimitW = String(UpperLimit);
-  charac.writeValue(UpperLimitW);
-  Serial.println(" BPM");
-  Serial.println("And what should the lower limit for the respiratory rate be?");
+  Serial.print(Age);
+  AgeW = String(Age);
+  charac.writeValue(AgeW);
+  Serial.println(" yrs");
+  /*Serial.println("And what should the lower limit for the respiratory rate be?");
   String secondquestion = "Input Lower Limit: ";
   charac.writeValue(secondquestion);
   while (central.connected() && lowertunnel > 2) {
@@ -211,7 +214,48 @@ if(gate > 2){
   Serial.print(LowerLimit);
   LowerLimitW = String(LowerLimit);
   charac.writeValue(LowerLimitW);
+  Serial.println(" BPM"); */
+  if (Age < 1) {
+    UpperLimit = 60;
+    LowerLimit = 30;
+  }
+  if (Age >= 1 && Age < 3){
+    UpperLimit = 40;
+    LowerLimit = 24;
+  }
+  if (Age >= 3 && Age < 6){
+    UpperLimit = 34;
+    LowerLimit = 22;
+  }
+  if (Age >= 6 && Age < 12){
+    UpperLimit = 30;
+    LowerLimit = 18;
+  }
+  if (Age >= 12 && Age < 18){
+    UpperLimit = 16;
+    LowerLimit = 12;
+  }
+  if (Age >= 18 && Age < 200){
+    UpperLimit = 18;
+    LowerLimit = 12;
+  }
+  
+  Serial.print("Lower respiratory rate limit set to: ");
+  String secondresponse = "Lower Limit set to: ";
+  charac.writeValue(secondresponse);
+  Serial.print(LowerLimit);
+  LowerLimitW = String(LowerLimit);
+  charac.writeValue(LowerLimitW);
   Serial.println(" BPM");
+
+  Serial.print("Upper respiratory rate limit set to: ");
+  String thirdresponse = "Upper Limit set to: ";
+  charac.writeValue(thirdresponse);
+  Serial.print(UpperLimit);
+  UpperLimitW = String(UpperLimit);
+  charac.writeValue(UpperLimitW);
+  Serial.println(" BPM");
+  
   Serial.println("Thank you for choosing TrachAlert. Respiratory rate measurement will start in 5 seconds.");
   String thanks = "Thank you.";
   charac.writeValue(thanks);
