@@ -1,3 +1,4 @@
+
 //Integrated Code Thermistor and Sound Power Level
 //
 //
@@ -76,6 +77,16 @@ int gate;
 int door;
 int uppertunnel;
 int lowertunnel;
+
+int numberbpm;
+String wordbpm;
+int numberbpmmic;
+String wordbpmmic;
+int numbertemp;
+String wordtemp;
+String phonedisplay;
+int numberaverage;
+String wordaverage;
 
 ////////////////////////////////////////////Microphone Code///////////////////////////////////////////////////
 // Settings
@@ -182,7 +193,7 @@ if(gate > 2){
   String title = "TrachAlert System";
   charac.writeValue(title);
   Serial.println("What is the age of the patient? (if patient is less than 1 year old, input 0)");
-  String firstquestion = "Input Age in years (if patient is less than 1 year old, input 0): ";
+  String firstquestion = "Input Age in years:";
   charac.writeValue(firstquestion);
   while (central.connected() && uppertunnel > 2) {
     if(charac.written()){
@@ -198,23 +209,7 @@ if(gate > 2){
   AgeW = String(Age);
   charac.writeValue(AgeW);
   Serial.println(" yrs");
-  /*Serial.println("And what should the lower limit for the respiratory rate be?");
-  String secondquestion = "Input Lower Limit: ";
-  charac.writeValue(secondquestion);
-  while (central.connected() && lowertunnel > 2) {
-    if(charac.written()){
-      LowerLimitInput = charac.value();
-      LowerLimit = LowerLimitInput.toInt();
-      lowertunnel = 1;
-    }
-  }
-  Serial.print("Lower respiratory rate limit set to: ");
-  String secondresponse = "Lower Limit set to: ";
-  charac.writeValue(secondresponse);
-  Serial.print(LowerLimit);
-  LowerLimitW = String(LowerLimit);
-  charac.writeValue(LowerLimitW);
-  Serial.println(" BPM"); */
+  
   if (Age < 1) {
     UpperLimit = 60;
     LowerLimit = 30;
@@ -248,6 +243,8 @@ if(gate > 2){
   charac.writeValue(LowerLimitW);
   Serial.println(" BPM");
 
+delay (500); 
+
   Serial.print("Upper respiratory rate limit set to: ");
   String thirdresponse = "Upper Limit set to: ";
   charac.writeValue(thirdresponse);
@@ -257,8 +254,8 @@ if(gate > 2){
   Serial.println(" BPM");
   
   Serial.println("Thank you for choosing TrachAlert. Respiratory rate measurement will start in 5 seconds.");
-  String thanks = "Thank you.";
-  charac.writeValue(thanks);
+  //String thanks = "Thank you.";
+  //charac.writeValue(thanks);
   counter = 1000; // Initial counter value
   caution = 300; //Initial caution value
   escape = 0; //Initial escape value;
@@ -335,10 +332,7 @@ int value = averageSlope;
   }
   if ((value < LowerThreshold) & (BPMTiming))
     BeatComplete = true;
-    // display bpm
-    //Serial.print(";    ");
-    //Serial.print(BPM);
-    //Serial.print(" BPM Temp");
+
 
     delay(1); // 5;
     
@@ -362,9 +356,6 @@ myTime = millis();
   float filteredValuemic = (LPF_ALPHAmic * power) + ((1 - LPF_ALPHAmic) * prevValuemic);
   prevValuemic = filteredValuemic;
 
-  //Serial.print("    :::::::::    ");
- // Serial.print(filteredValuemic); // Filtered Value of the Power Value in Linear Scale 
-  //Serial.println("    pow; ");
 
 int value = filteredValuemic;
   if (value > UpperThresholdmic) {
@@ -381,10 +372,6 @@ int value = filteredValuemic;
   }
   if ((value < LowerThresholdmic) & (BPMTimingmic))
     BeatCompletemic = true;
-    // display bpm
-   // Serial.print(";    ");
-    //Serial.print(BPMmic);
-    //Serial.println(" BPM Mic");
 Serial.print(myTime);
 Serial.print(";    ");
 Serial.print(BPMmic);
@@ -392,25 +379,34 @@ Serial.print(" BPM Mic");
 Serial.print(";    ");
 Serial.print(BPM);
 Serial.println(" BPM Temp");
+numberbpm = BPM;
+wordbpm = String(numberbpm);
+numberbpmmic = BPMmic;
+wordbpmmic = String(numberbpmmic);
+String phonedisplay = String(wordbpmmic + " BPM Mic   " + wordbpm + " BPM Temp");
+charac.writeValue(phonedisplay);
+
     delay(5); // 5
+    // check if BPMmic or BPM values exceed upper limit or drop below lower limit
+     if (BPMmic > UpperLimit || BPM > UpperLimit || BPMmic < LowerLimit || BPM < LowerLimit) {
+      counter = counter - 1;
+     } else {
+        counter = 300; //Number of abnormal readings until alert
+      }
+      if (counter <= 0) {
+          Serial.println("Abnormal Breathing detected");
+          String ABD = "Abnormal Breathing Detected!";
+          charac.writeValue(ABD);
   }
-
-  record_ready = false;
   }
-
-//Serial.print(myTime);
-//Serial.print(";    ");
-//Serial.print(BPMmic);
-//Serial.print(" BPM Mic");
-//Serial.print(";    ");
-//Serial.print(BPM);
-//Serial.println(" BPM Temp");
-
+  }  
+record_ready = false;
 }
 
 Serial.println("Bluetooth disconnected. Please reconnect device to access TrachAlert readings.");
 }
 }
+
 static void audio_rec_callback(uint16_t *buf, uint32_t buf_len) {
 
   static uint32_t idx = 0;
