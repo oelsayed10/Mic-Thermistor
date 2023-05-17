@@ -1,39 +1,32 @@
+// Integrated Code Thermistor and Sound Power Level
 
-//Integrated Code Thermistor and Sound Power Level
-//
-//
-//
-//
-//
-
-//Libraries
+// Libraries
 #include "LSM6DS3.h"
 #include "Wire.h"
 #include "mic.h"
 #include "ArduinoBLE.h"
 
-///////////////////////////////////////////Thermistor Setup/////////////////////////////////////
-//Thermistor Code 
-
+////////// Thermistor Setup //////////
+// Thermistor Code
 float slopeArray[10]; // array of size 10 to store past 10 slope values
 
-//BPM Code 
+// BPM Code 
 int x = 0;
 int LastTime = 0;
 bool BPMTiming = false;
 bool BeatComplete = false;
 int BPM = 0;    
-#define UpperThreshold 0.7 // 24.5 // Threshold above which the signal is considered a breath
-#define LowerThreshold -0.5  // 24 for normal //Threshold below which a breath is considered complete 
+#define UpperThreshold 0.25 // 24.5 // Threshold above which the signal is considered a breath
+#define LowerThreshold -0.15  // 24 for normal //Threshold below which a breath is considered complete 
 int Signal; // holds the incoming raw data. Signal value can range from 0-1024
-//time
+
+// Time
 unsigned long myTime;
 unsigned long startMillis;
 
-
-//Thermistor Definitions
+// Thermistor Definitions
 // which analog pin to connect
-#define THERMISTORPIN A2         
+#define THERMISTORPIN A3 //MAKE SURE TO CHANGE THE PIN ACCORDING TO THE THERMISTOR PLACEMENT ON THE BOARD         
 // resistance at 25 degrees C
 #define THERMISTORNOMINAL 10000      
 // temp. for nominal resistance (almost always 25 C)
@@ -46,7 +39,7 @@ unsigned long startMillis;
 // the value of the 'other' resistor
 #define SERIESRESISTOR 10000    
 
-// Low-pass filter variables
+// Low-Pass Filter Variables
 #define LPF_ALPHA 0.1 // Filter constant (0 < alpha < 1)
 float prevValue = 0;
 float prevTime = 0;
@@ -54,7 +47,7 @@ float prevSlope = 0;
 
 int samples[NUMSAMPLES];
 
-////////////////////////////////////////////Bluetooth Code///////////////////////////////////////////////////
+////////// Bluetooth Code //////////
 // Bluetooth
 BLEService echoService("00000000-0000-1000-8000-00805f9b34fb");
 BLEStringCharacteristic charac ("741c12b9-e13c-4992-8a5e-fce46dec0bff", BLERead | BLEWrite | BLENotify, 40);
@@ -70,6 +63,9 @@ String LowerLimitInput;
 int Age;
 String AgeW;
 String AgeInput;
+int Mode;
+String ModeW;
+String ModeInput;
 int counter;
 int caution;
 int escape;
@@ -77,6 +73,8 @@ int gate;
 int door;
 int uppertunnel;
 int lowertunnel;
+int middletunnel;
+int detour;
 
 int numberbpm;
 String wordbpm;
@@ -88,16 +86,16 @@ String phonedisplay;
 int numberaverage;
 String wordaverage;
 
-////////////////////////////////////////////Microphone Code///////////////////////////////////////////////////
+////////// Microphone Code //////////
 // Settings
 #define DEBUG 1
 #define SAMPLESmic 800                   
 
-// Low-pass filter variables
+// Low-Pass Filter Variables
 #define LPF_ALPHAmic 0.1 // Filter constant (0 < alpha < 1)
 float prevValuemic = 0;
 
-//BPM Code 
+// BPM Code 
 int xmic = 0;
 int LastTimemic = 0;
 bool BPMTimingmic = false;
@@ -106,15 +104,16 @@ int BPMmic = 0;
 #define UpperThresholdmic 0.05 // 0.04 // Threshold above which the signal is considered a breath
 #define LowerThresholdmic 0.005  // 0.01 for normal //Threshold below which a breath is considered complete 
 int Signalmic; // holds the incoming raw data. Signal value can range from 0-1024
-//time
+
+// Time
 unsigned long myTimemic;
 unsigned long startMillismic;
 
 
-//Create a instance of class LSM6DS3
+// Create a instance of class LSM6DS3
 LSM6DS3 myIMU(I2C_MODE, 0x6A);
 
-//Microphone Configuration
+// Microphone Configuration
 mic_config_t mic_config{
   .channel_cnt = 1,
   .sampling_rate = 16000,
@@ -122,7 +121,7 @@ mic_config_t mic_config{
   //.debug_pin = LED_BUILTIN
 };
 
-//Create an instance of class NRF52840
+// Create an instance of class NRF52840
 NRF52840_ADC_Class Mic(&mic_config);
 
 int16_t recording_buf[SAMPLESmic];
@@ -131,21 +130,23 @@ volatile static bool record_ready = false;
 
 void setup() {
 
-  delay(3000);
+  delay(5000);
   Serial.println("Initializing TrachAlert...");
-  delay(3000);
+  delay(5000);
 
   Mic.set_callback(audio_rec_callback);
 
+  detour = 3;
   gate = 3; // 3 = open, 1 = closed
   door = 3; // 3 = open, 1 = closed
   uppertunnel = 3;
   lowertunnel = 3;
+  middletunnel = 3;
   
   Serial.begin(9600);
 
   if (!Mic.begin()) {
-   // Serial.println("Mic initialization failed");
+    Serial.println("Mic initialization failed.");
     while (1); }
 
   if(!BLE.begin()){
@@ -154,7 +155,7 @@ void setup() {
   }
   
  if (myIMU.begin() != 0) {
-       Serial.println("Device error"); } 
+       Serial.println("Device error."); } 
     
  else { Serial.println("Device OK!");
         Serial.println("Mic initialization done.");
@@ -192,6 +193,64 @@ if(gate > 2){
   Serial.println("////////// TrachAlert System //////////");
   String title = "TrachAlert System";
   charac.writeValue(title);
+  Serial.println("Manual Mode (1) or Age Mode (2)?");
+  String manual = "Manual Mode (1) or Age Mode (2)";
+  charac.writeValue(manual);
+  while (central.connected() && middletunnel > 2) {
+    if(charac.written()){
+      ModeInput = charac.value();
+      Mode = ModeInput.toInt();
+      middletunnel = 1;
+    }
+  }
+
+  if (Mode == 1) {
+    Serial.println("What should the upper limit for the respiratory rate be?");
+  String firstquestion = "Input Upper Limit: ";
+  charac.writeValue(firstquestion);
+  while (central.connected() && uppertunnel > 2) {
+    if(charac.written()){
+      UpperLimitInput = charac.value();
+      UpperLimit = UpperLimitInput.toInt();
+      uppertunnel = 1;
+    }
+  }
+  Serial.print("Upper respiratory rate limit set to: ");
+  String firstresponse = "Upper Limit set to: ";
+  charac.writeValue(firstresponse);
+  Serial.print(UpperLimit);
+  UpperLimitW = String(UpperLimit);
+  charac.writeValue(UpperLimitW);
+  Serial.println(" BPM");
+  Serial.println("And what should the lower limit for the respiratory rate be?");
+  String secondquestion = "Input Lower Limit: ";
+  charac.writeValue(secondquestion);
+  while (central.connected() && lowertunnel > 2) {
+    if(charac.written()){
+      LowerLimitInput = charac.value();
+      LowerLimit = LowerLimitInput.toInt();
+      lowertunnel = 1;
+    }
+  }
+  Serial.print("Lower respiratory rate limit set to: ");
+  String secondresponse = "Lower Limit set to: ";
+  charac.writeValue(secondresponse);
+  Serial.print(LowerLimit);
+  LowerLimitW = String(LowerLimit);
+  charac.writeValue(LowerLimitW);
+  Serial.println(" BPM");
+  Serial.println("Thank you for choosing TrachAlert. Respiratory rate measurement will start in 5 seconds.");
+  String thanks = "Thank you.";
+  charac.writeValue(thanks);
+  counter = 1000; // Initial counter value
+  caution = 300; //Initial caution value
+  escape = 0; //Initial escape value;
+  delay(5000); // Seconds before respiratory rate measurement begins
+  gate = 1;
+  Mode = 0;
+  }
+
+  if (Mode == 2) {
   Serial.println("What is the age of the patient? (if patient is less than 1 year old, input 0)");
   String firstquestion = "Input Age in years:";
   charac.writeValue(firstquestion);
@@ -261,7 +320,10 @@ delay (500);
   escape = 0; //Initial escape value;
   delay(5000); // Seconds before respiratory rate measurement begins
   gate = 1;
+  Mode = 0;
 }
+}
+
         if (record_ready)
   {
   uint8_t i;
@@ -304,20 +366,8 @@ delay (500);
     prevTime = myTime;
     prevSlope = steinhart;
 
-   // Add the current slope value to the slope array
-for (int t = 9; t > 0; t--) {
-  slopeArray[t] = slopeArray[t-1];
-}
-slopeArray[0] = slope;
 
-// Calculate the average slope value from the past 10 values
-float slopeSum = 0;
-for (int t = 0; t < 10; t++) {
-  slopeSum += slopeArray[i];
-}
-float averageSlope = slopeSum / 10;
-
-int value = averageSlope;
+int value = slope;
   if (value > UpperThreshold) {
     if (BeatComplete) {
       BPM = millis() - LastTime;
@@ -334,7 +384,7 @@ int value = averageSlope;
     BeatComplete = true;
 
 
-    delay(1); // 5;
+    delay(6); // 5;
     
   for (int s = 0; s < SAMPLESmic; s++) {
 
@@ -386,7 +436,7 @@ wordbpmmic = String(numberbpmmic);
 String phonedisplay = String(wordbpmmic + " BPM Mic   " + wordbpm + " BPM Temp");
 charac.writeValue(phonedisplay);
 
-    delay(5); // 5
+    //delay(1); // 5
     // check if BPMmic or BPM values exceed upper limit or drop below lower limit
      if (BPMmic > UpperLimit || BPM > UpperLimit || BPMmic < LowerLimit || BPM < LowerLimit) {
       counter = counter - 1;
