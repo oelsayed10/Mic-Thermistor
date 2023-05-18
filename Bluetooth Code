@@ -16,8 +16,8 @@ int LastTime = 0;
 bool BPMTiming = false;
 bool BeatComplete = false;
 int BPM = 0;    
-#define UpperThreshold 0.25 // 24.5 // Threshold above which the signal is considered a breath
-#define LowerThreshold -0.15  // 24 for normal //Threshold below which a breath is considered complete 
+#define UpperThreshold 0.5 // 24.5 // Threshold above which the signal is considered a breath
+#define LowerThreshold -0.2  // 24 for normal //Threshold below which a breath is considered complete 
 int Signal; // holds the incoming raw data. Signal value can range from 0-1024
 
 // Time
@@ -101,8 +101,8 @@ int LastTimemic = 0;
 bool BPMTimingmic = false;
 bool BeatCompletemic = false;
 int BPMmic = 0;    
-#define UpperThresholdmic 0.05 // 0.04 // Threshold above which the signal is considered a breath
-#define LowerThresholdmic 0.005  // 0.01 for normal //Threshold below which a breath is considered complete 
+#define UpperThresholdmic 0.06 // 0.04 // Threshold above which the signal is considered a breath
+#define LowerThresholdmic 0.01  // 0.01 for normal //Threshold below which a breath is considered complete 
 int Signalmic; // holds the incoming raw data. Signal value can range from 0-1024
 
 // Time
@@ -326,6 +326,8 @@ delay (500);
 
         if (record_ready)
   {
+    for (int s = 0; s < SAMPLESmic; s++) {
+    
   uint8_t i;
   float average;
 
@@ -367,8 +369,8 @@ delay (500);
     prevSlope = steinhart;
 
 
-int value = slope;
-  if (value > UpperThreshold) {
+int value1 = slope;
+  if (value1 > UpperThreshold) {
     if (BeatComplete) {
       BPM = millis() - LastTime;
       BPM = int(60 / (float(BPM) / 1000));
@@ -380,13 +382,11 @@ int value = slope;
       BPMTiming = true;
     }
   }
-  if ((value < LowerThreshold) & (BPMTiming))
+  if ((value1 < LowerThreshold) & (BPMTiming))
     BeatComplete = true;
 
 
     delay(6); // 5;
-    
-  for (int s = 0; s < SAMPLESmic; s++) {
 
   //int16_t sample = filter.step(recording_buf[i]);
   int16_t samplemic = recording_buf[s];
@@ -440,19 +440,20 @@ charac.writeValue(phonedisplay);
     // check if BPMmic or BPM values exceed upper limit or drop below lower limit
      if (BPMmic > UpperLimit || BPM > UpperLimit || BPMmic < LowerLimit || BPM < LowerLimit) {
       counter = counter - 1;
-     } else {
+        } 
+     else {
         counter = 300; //Number of abnormal readings until alert
-      }
+        }
       if (counter <= 0) {
           Serial.println("Abnormal Breathing detected");
           String ABD = "Abnormal Breathing Detected!";
           charac.writeValue(ABD);
+        }
   }
-  }
+  
   }  
 record_ready = false;
 }
-
 Serial.println("Bluetooth disconnected. Please reconnect device to access TrachAlert readings.");
 }
 }
